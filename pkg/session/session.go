@@ -130,10 +130,12 @@ func Run(ctx context.Context, profile bool, output, proxy string) error {
 
 	// obtain user agent
 	var userAgent, acceptLanguage string
+	// Use chromedp to navigate and get the HTML content
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(scrapfly.InfoHTTPURL),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.ActionFunc(func(ctx context.Context) error {
+			// Extracting HTML content
 			node, err := dom.GetDocument().Do(ctx)
 			if err != nil {
 				return err
@@ -142,39 +144,43 @@ func Run(ctx context.Context, profile bool, output, proxy string) error {
 			if err != nil {
 				return err
 			}
+
+			// Parse the HTML content
 			doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer([]byte(res)))
 			if err != nil {
 				return err
 			}
-			body := doc.Find("body").Text()
-			if body == "" {
-				return errors.New("couldn't obtain info http")
-			}
-			var infoHTTP scrapfly.InfoHTTP
-			if err := json.Unmarshal([]byte(body), &infoHTTP); err != nil {
+
+			// Extracting user agent information from the JSON structure
+			userAgentJSON := doc.Find("body").Text()
+			var userAgentData map[string]interface{}
+			if err := json.Unmarshal([]byte(userAgentJSON), &userAgentData); err != nil {
 				return err
 			}
-			userAgent = infoHTTP.Headers.UserAgent.Payload
-			if userAgent == "" {
-				return errors.New("empty user agent")
+
+			headersData, ok := userAgentData["headers"].(map[string]interface{})
+			if !ok {
+				return errors.New("missing 'headers' field in user agent JSON")
 			}
-			log.Println("user-agent:", userAgent)
-			v, ok := infoHTTP.Headers.ParsedHeaders["Accept-Language"]
-			if !ok || len(v) == 0 {
-				return errors.New("empty accept language")
+
+			userAgentValue, ok := headersData["user-agent"].(string)
+			if !ok {
+				return errors.New("missing 'user-agent' field in headers")
 			}
-			acceptLanguage = v[0]
-			log.Println("language:", acceptLanguage)
+			userAgent = userAgentValue
+			log.Println("User Agent: ", userAgent)
+
+			acceptLanguageValue, ok := headersData["accept-language"].(string)
+			if !ok {
+				return errors.New("missing 'accept-language' field in headers")
+			}
+			acceptLanguage = acceptLanguageValue
+			log.Println("Accept Language: ", acceptLanguage)
+
 			return nil
 		}),
 	); err != nil {
 		return fmt.Errorf("could not obtain user agent: %w", err)
-	}
-	if userAgent == "" {
-		return errors.New("empty user agent")
-	}
-	if acceptLanguage == "" {
-		return errors.New("empty accept language")
 	}
 
 	var lck sync.Mutex

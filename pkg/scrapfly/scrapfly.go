@@ -4,7 +4,7 @@ const (
 	// JA3URL is the URL to the JA3 API
 	FPJA3URL = "https://tools.scrapfly.io/api/fp/ja3"
 	// HTTPURL is the URL to the HTTP API
-	InfoHTTPURL = "https://tools.scrapfly.io/api/info/http"
+	InfoHTTPURL = "https://tools.scrapfly.io/api/fp/akamai"
 )
 
 type FPJA3 struct {
